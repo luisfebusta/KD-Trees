@@ -46,7 +46,7 @@ public class KdTree {
         while (current != null)
         {
             //if point is already in the set don't do anything
-            if (current.equals(p))
+            if (current.point.equals(p))
             {
                 return;
             }
@@ -64,7 +64,7 @@ public class KdTree {
             }
 
 
-            if (cmp.compare(p, current.point) <= 0)
+            if (cmp.compare(p, current.point) < 0)
             {
                 if (current.left != null)
                 {
@@ -91,7 +91,7 @@ public class KdTree {
 
             level = ++level % 2;
         }
-
+        size++;
     }
     public boolean contains(Point2D p)   
     {
@@ -112,8 +112,8 @@ public class KdTree {
 
         while (current != null)
         {
-            //if point is already in the set don't do anything
-            if (current.equals(p))
+            //if point is found return true.
+            if (current.point.equals(p))
             {
                 return true;
             }
@@ -129,7 +129,7 @@ public class KdTree {
                 cmp = Point2D.Y_ORDER;
             }
 
-            if (cmp.compare(p, current.point) <= 0)
+            if (cmp.compare(p, current.point) < 0)
             {
                 current = current.left;
             }
@@ -170,29 +170,29 @@ public class KdTree {
         int level = -1;
 
         Node current = set;
-        Comparator<Point2D> cmp = null;
-        rangeHelper(rect, current, result, level, cmp);
+        rangeHelper(rect, current, result, level);
 
         return result;
     }
 
-    private void rangeHelper (RectHV rect, Node current, Set<Point2D> result, int level, Comparator<Point2D> cmp)
+    private void rangeHelper(RectHV rect, Node current,
+            Set<Point2D> result, int lvl)
     {
         if (current == null)
             return;
 
-        level = ++level % 2;
+        int level = (lvl +1) % 2;
 
         // if rectangle contains current point need to search both sides and add
         // point to the result set
         if (rect.contains(current.point))
         {
             result.add(current.point);  
-            rangeHelper(rect, current.left, result, level, cmp);
-            rangeHelper(rect, current.right, result, level, cmp);
+            rangeHelper(rect, current.left, result, level);
+            rangeHelper(rect, current.right, result, level);
             return;
         }  
-
+        Comparator<Point2D> cmp;
         if (level == 0)
         {
             //compare x axis
@@ -206,15 +206,16 @@ public class KdTree {
 
 
 
-        if (cmp.compare(new Point2D(rect.xmin(), rect.ymin()), current.point) <= 0)
+        if (cmp.compare(new Point2D(rect.xmin(), rect.ymin()), current.point) < 0)
         {
-            rangeHelper(rect, current.left, result, level, cmp);
+            rangeHelper(rect, current.left, result, level);
         }
-        else
+        
+        if (cmp.compare(new Point2D(rect.xmax(), rect.ymax()), current.point) >= 0)
         {
-            rangeHelper(rect, current.right, result, level, cmp);
+            rangeHelper(rect, current.right, result, level);
         }
-
+        
     }
     public Point2D nearest(Point2D p)   
     {
@@ -224,33 +225,46 @@ public class KdTree {
 
         if (isEmpty())
             return null;
+        
+       
 
-        Point2D nearest = set.point;
-        Comparator<Point2D> cmp = null;
-        // double minDist = p.distanceTo(nearest.point);
-        nearestHelper(p, set, nearest, -1, cmp);
 
-        return nearest;
+        NearestNode nearest = new NearestNode();
+        nearest.point = set.point;
+        nearest.dSquared = p.distanceSquaredTo(nearest.point);
+        nearestHelper(p, set, nearest, -1);
+        
+
+        return nearest.point;
+    }
+    
+    private class NearestNode {
+        private Point2D point;
+        private double dSquared;
     }
 
-    private void nearestHelper(Point2D p, Node current, Point2D nearest, int level, Comparator<Point2D> cmp)
+    private void nearestHelper(Point2D p, Node current, NearestNode nearest, int lvl)
     {
         if (current == null)
             return;
 
-        level = ++level % 2;
+        int level = (lvl + 1) % 2;
 
-        Point2D thisNearest = nearest;
+        //NearestNode thisNearest = nearest;
 
 
         // if rectangle contains current point need to search both sides and add
         // point to the result set
-
-        if (p.distanceTo(current.point) <= p.distanceTo(nearest))
+        double distanceToCurrent =  p.distanceSquaredTo(current.point);
+       
+        if (distanceToCurrent <= nearest.dSquared)
         {
-            nearest = current.point;
+            nearest.point = current.point;
+            nearest.dSquared = distanceToCurrent;
+            if (nearest.point.compareTo(p) == 0) // if same point.
+                return;
         }
-
+        Comparator<Point2D> cmp = null;
         if (level == 0)
         {
             //compare x axis
@@ -263,25 +277,22 @@ public class KdTree {
         }
 
 
-        //compare x axis
-        if (cmp.compare(p, current.point) <= 0)
+        if (cmp.compare(p, current.point) < 0)
         {
-            nearestHelper(p, current.left, nearest, level, cmp);
-            if (thisNearest.equals(nearest))
+            nearestHelper(p, current.left, nearest, level);
+            if (distanceToCurrent == nearest.dSquared)
             {
-                nearestHelper(p, current.right, nearest, level, cmp); 
+                nearestHelper(p, current.right, nearest, level); 
             }
         }
         else
         {
-            nearestHelper(p, current.right, nearest, level, cmp);
-            if (thisNearest.equals(nearest))
+            nearestHelper(p, current.right, nearest, level);
+            if (distanceToCurrent == nearest.dSquared)
             {
-                nearestHelper(p, current.left, nearest, level, cmp); 
+                nearestHelper(p, current.left, nearest, level); 
             }
         }
-
-
 
     }
 
